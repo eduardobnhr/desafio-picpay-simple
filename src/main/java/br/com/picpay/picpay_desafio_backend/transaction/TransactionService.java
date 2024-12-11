@@ -3,7 +3,7 @@ package br.com.picpay.picpay_desafio_backend.transaction;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import br.com.picpay.picpay_desafio_backend.exception.InvalidTransactionException;
+import br.com.picpay.picpay_desafio_backend.authorization.AuthorizerService;
 import br.com.picpay.picpay_desafio_backend.wallet.Wallet;
 import br.com.picpay.picpay_desafio_backend.wallet.WalletRepository;
 import br.com.picpay.picpay_desafio_backend.wallet.WalletType;
@@ -12,24 +12,22 @@ import br.com.picpay.picpay_desafio_backend.wallet.WalletType;
 public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
+    private final AuthorizerService authorizerService;
 
-    public TransactionService(TransactionRepository transactionRepository, WalletRepository walletRepository) {
+    public TransactionService(TransactionRepository transactionRepository, WalletRepository walletRepository, AuthorizerService authorizerService) {
         this.transactionRepository = transactionRepository;
         this.walletRepository = walletRepository;
+        this.authorizerService = authorizerService;
     }
 
     @Transactional
     public Transaction create(Transaction transaction) {
-        //1 validar
         validate(transaction);
-        //2 criar a transacao
         var newTransaction = transactionRepository.save(transaction);
-        //3 debitar da carteira
-        var wallet = walletRepository.findById(transaction.payer()).get();
+        var wallet = walletRepository.findById(transaction.payer()).orElseThrow(() -> new IllegalArgumentException("Wallet not found"));
         walletRepository.save(wallet.debit(transaction.value()));
-        //4 chamar servicos externos
 
-        
+        authorizerService.authorize(transaction);
 
         return newTransaction;
     }
