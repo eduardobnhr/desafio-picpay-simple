@@ -1,7 +1,9 @@
 package br.com.picpay.picpay_desafio_backend.transaction;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import br.com.picpay.picpay_desafio_backend.exception.InvalidTransactionException;
 import br.com.picpay.picpay_desafio_backend.wallet.Wallet;
 import br.com.picpay.picpay_desafio_backend.wallet.WalletRepository;
 import br.com.picpay.picpay_desafio_backend.wallet.WalletType;
@@ -16,6 +18,7 @@ public class TransactionService {
         this.walletRepository = walletRepository;
     }
 
+    @Transactional
     public Transaction create(Transaction transaction) {
         //1 validar
         validate(transaction);
@@ -26,6 +29,8 @@ public class TransactionService {
         walletRepository.save(wallet.debit(transaction.value()));
         //4 chamar servicos externos
 
+        
+
         return newTransaction;
     }
     
@@ -33,8 +38,8 @@ public class TransactionService {
         walletRepository.findById(transaction.payee())
         .map( payee -> walletRepository.findById(transaction.payer())
             .map(payer -> isValidTransaction(transaction, payer) ? transaction : null)
-            .orElseThrow())
-        .orElseThrow();
+            .orElseThrow(() -> new InvalidTransactionException("Transacao invalida - %s".formatted(transaction))))
+        .orElseThrow(() -> new InvalidTransactionException("Transacao invalida - %s".formatted(transaction)));
     }
 
     private boolean isValidTransaction(Transaction transaction, Wallet payer) {
